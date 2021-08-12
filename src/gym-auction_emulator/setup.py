@@ -1,3 +1,6 @@
+# you should cd to src folder and run:
+# pip install -e gym-auction_emulator
+# by doing this, you can directly import gym_auction_emulator anywhere else
 from setuptools import setup
 
 setup(
