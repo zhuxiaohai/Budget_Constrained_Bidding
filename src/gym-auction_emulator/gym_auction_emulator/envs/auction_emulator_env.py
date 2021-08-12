@@ -9,6 +9,8 @@ import configparser
 import json
 import os
 import pandas as pd
+import numpy as np
+import math
 
 class AuctionEmulatorEnv(gym.Env):
     """
@@ -27,7 +29,7 @@ class AuctionEmulatorEnv(gym.Env):
         cfg.read(env_dir + '/config.cfg')
         self.data_src = cfg['data']['dtype']
         if self.data_src == 'ipinyou':
-            self.file_in = env_dir + str(cfg['data']['ipinyou_path'])
+            self.file_in = cfg['data']['ipinyou_path'][1:-1]
         self.metric = str(cfg['data']['metric'])
 
     def __init__(self):
@@ -41,14 +43,33 @@ class AuctionEmulatorEnv(gym.Env):
                     'weekday',
                     'hour',
                     'auction_type',
-                    'bidprice',
+                    # 'bidprice',
                     'slotprice',
-                    'payprice',
+                    # 'payprice',
                     'click_prob'
                     ]
-        self.bid_requests = pd.read_csv(self.file_in, sep="\t", usecols=fields)
+        self.bid_requests = self._get_data('1458')
+        # self.bid_requests = pd.read_csv(self.file_in, sep="\t", usecols=fields)
         self.total_bids = len(self.bid_requests)
         self.bid_line = {}
+
+    def _get_data(self, camp_n):
+        """
+        This function extracts data for certain specified campaigns
+        from a folder in the current working directory.
+        :param camp_n: a list of campaign names
+        :return: two dictionaries, one for training and one for testing,
+        with data on budget, bids, number of auctions, etc. The different
+        campaigns are stored in the dictionaries with their respective names.
+        """
+        data_path = self.file_in
+        train_data = pd.read_csv(data_path + '/' + 'train.theta_{}.txt'.format(camp_n),
+                                 header=None, index_col=False, sep=' ', names=['click', 'slotprice', 'click_prob'])
+        train_data['auction_type'] = 'SECOND_PRICE'
+        train_data['hour'] = train_data.index.map(lambda x: math.floor(x / 500))
+        train_data['weekday'] = train_data.index.map(lambda x: math.floor((x) / (500*96)) + 1)
+
+        return train_data
 
     def _get_observation(self, bid_req):
         observation = {}
@@ -62,8 +83,8 @@ class AuctionEmulatorEnv(gym.Env):
 
     def _bid_state(self, bid_req):
         self.auction_type = bid_req['auction_type']
-        self.bidprice = bid_req['bidprice']
-        self.payprice = bid_req['payprice']
+        # self.bidprice = bid_req['bidprice']
+        # self.payprice = bid_req['payprice']
         self.click_prob = bid_req['click_prob']
         self.slotprice = bid_req['slotprice']
 
@@ -93,7 +114,8 @@ class AuctionEmulatorEnv(gym.Env):
         else:
             raise ValueError(f"Invalid metric type: {self.metric}")
 
-        mkt_price = max(self.slotprice, self.payprice)
+        # mkt_price = max(self.slotprice, self.payprice)
+        mkt_price = self.slotprice
         if action > mkt_price:
             if self.auction_type == 'SECOND_PRICE':
                 r = r_p

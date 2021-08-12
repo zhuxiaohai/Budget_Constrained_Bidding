@@ -11,7 +11,7 @@ import configparser
 from dqn import Agent
 from reward_net import RewardNet
 import numpy as np
-
+import pickle
 
 class RlBidAgent():
 
@@ -22,7 +22,9 @@ class RlBidAgent():
         cfg = configparser.ConfigParser(allow_no_value=True)
         env_dir = os.path.dirname(__file__)
         cfg.read(env_dir + '/config.cfg')
-        self.budget = int(cfg['agent']['budget'])
+
+        camp_info = pickle.load(open('d:\\PycharmProjects\\reinforcement_bidding\\Budget_Constrained_Bidding\\data\\ipinyou\\info_1458.txt', "rb"))
+        self.budget = int(camp_info['cost_train'])
         self.target_value = int(cfg['agent']['target_value'])
         self.T = int(cfg['rl_agent']['T']) # T number of timesteps
         self.STATE_SIZE = int(cfg['rl_agent']['STATE_SIZE'])
@@ -68,7 +70,7 @@ class RlBidAgent():
         self._reset_step()                # 7. Total value of the winning impressions 'click_prob'
         self.cur_day = 1
         self.cur_hour = 0
-        self.ctl_lambda = 1.0  # Lambda sequential regulation parameter
+        self.ctl_lambda = 0.0001  # Lambda sequential regulation parameter
         self.wins_e = 0  
         self.eps = self.eps_start
         self.V = 0
@@ -166,12 +168,13 @@ class RlBidAgent():
 
         # action = bid amount
         # send the best estimate of the bid
-        self.budget_spend += (cost / 1e9)
+        # self.budget_spend += (cost / 1e9)
+        self.budget_spend += cost
         if cost > 0:
             self.wins_t += 1
             self.wins_e += 1
-        action = min(self.ctl_lambda * self.target_value * state['click_prob'] * 1e9,
-                        (self.budget - self.budget_spend) * 1e9)
+        action = min(state['click_prob'] / self.ctl_lambda,
+                        (self.budget - self.budget_spend))
         return action
 
     def done(self):
